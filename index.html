@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="mdui-theme-auto">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>我的世界基岩版皮肤包创建器</title>
+  <link rel="stylesheet" href="https://cdn.jsdmirror.com/npm/mdui@2/mdui.css">
+  <script src="https://cdn.jsdmirror.com/npm/mdui@2/mdui.global.js"></script>
+  <script src="/static/js/zip.js"></script>
+  <script src="https://cdn.jsdmirror.com/npm/skinview3d@3/bundles/skinview3d.bundle.js"></script>
+  <style>
+    body { display: flex; flex-direction: column; align-items: center; padding: 24px 16px 48px; }
+    .card { width: 100%; max-width: 560px; }
+    .stage { display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 320px; }
+    .stage > * { flex-shrink: 0; }
+    .stage canvas { flex-shrink: 1; min-width: 0; max-width: 256px; height: auto; aspect-ratio: 4 / 5; }
+    .counter { text-align: center; color: var(--mdui-color-on-surface-variant); margin-top: 4px; }
+    .add-tile { flex-shrink: 1; min-width: 0; width: 256px; max-width: 100%; aspect-ratio: 4 / 5; border: 2px dashed var(--mdui-color-outline); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--mdui-color-on-surface-variant); text-align: center; cursor: pointer; user-select: none; }
+    .add-tile:active { background: var(--mdui-color-surface-container-highest); }
+    .hidden { display: none; }
+    .row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+    mdui-text-field { width: 100%; }
+    .export-area { margin-top: 16px; display: flex; justify-content: flex-end; }
+  </style>
+</head>
+<body>
+
+  <mdui-card variant="outlined" class="card" style="padding:24px">
+    <!-- 上方：皮肤展示区 -->
+    <div class="stage">
+      <mdui-button-icon id="prev" disabled>
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+      </mdui-button-icon>
+
+      <canvas id="viewer" class="hidden" width="256" height="320"></canvas>
+
+      <!-- 最后"一页"：大面积导入按钮（皮肤或皮肤包） -->
+      <div id="addTile" class="add-tile">
+        <svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>
+        <div>导入皮肤 <b>或</b> 导入皮肤包</div>
+      </div>
+
+      <mdui-button-icon id="next" disabled>
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M8.59 16.59 10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg>
+      </mdui-button-icon>
+    </div>
+    <div class="counter" id="counter"></div>
+
+    <mdui-divider style="margin:16px 0"></mdui-divider>
+
+    <div class="row">
+      <mdui-button id="delBtn" variant="text" disabled style="margin-left:auto">
+        <svg slot="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14z"/></svg>
+        删除当前
+      </mdui-button>
+    </div>
+
+    <div class="row" style="margin-top:16px">
+      <mdui-text-field id="skinName" label="皮肤名称" placeholder="例如：小蓝" style="flex:1;min-width:200px"></mdui-text-field>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <span>纤细皮肤</span>
+      <mdui-switch id="slim"></mdui-switch>
+    </div>
+    <div class="row" style="margin-top:16px">
+      <mdui-text-field id="mcUser" label="Java 版用户名导入" placeholder="例如：Notch" style="flex:1;min-width:160px"></mdui-text-field>
+      <mdui-button id="fetchBtn" variant="tonal">
+        <svg slot="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2z"/></svg>
+        下载皮肤
+      </mdui-button>
+    </div>
+    <input type="file" id="fileInput" accept=".png,.jpg,.jpeg,.webp,.mcpack,.zip" multiple class="hidden">
+  </mdui-card>
+
+  <!-- 下方：皮肤包名称区 -->
+  <mdui-card variant="filled" class="card" style="padding:24px;margin-top:24px">
+    <mdui-text-field id="packName" variant="outlined" label="皮肤包名称（导出的 .mcpack 文件名）" placeholder="例如：我的皮肤包"></mdui-text-field>
+    <mdui-text-field id="packDesc" variant="outlined" label="包描述（可选）" placeholder="例如：收集了我的几个皮肤" style="margin-top:16px"></mdui-text-field>
+    <div class="export-area">
+      <mdui-button id="importBtn" variant="outlined" class="hidden">
+        <svg slot="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19 15h-4v3h-6v-3H5l7-7 7 7zM5 4v2h14V4z"/></svg>
+        导入皮肤包
+      </mdui-button>
+      <mdui-button id="exportBtn" variant="filled" icon>
+        <svg slot="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2z"/></svg>
+        导出皮肤包
+      </mdui-button>
+    </div>
+  </mdui-card>
+
+  <mdui-dialog id="delDialog" headline="删除皮肤" description="确定要删除当前皮肤吗？此操作无法撤销。">
+    <mdui-button id="delCancel" slot="action" variant="text">取消</mdui-button>
+    <mdui-button id="delConfirm" slot="action" variant="filled">删除</mdui-button>
+  </mdui-dialog>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const state = { skins: [], idx: 0 }; // skins: [{ name, slim, data, url }]
+
+  function current() { return state.skins[state.idx]; }
+
+  // 3D 预览（skinview3d，自动渲染外层/内层双层皮肤）
+  let skinViewer = null;
+  function ensureViewer() {
+    if (skinViewer) return;
+    skinViewer = new skinview3d.SkinViewer({ canvas: $('viewer'), width: 256, height: 320 });
+    skinViewer.animation = new skinview3d.WalkingAnimation();
+    // OrbitControls 默认已支持拖拽旋转与滚轮缩放
+  }
+
+  // addTile 作为最后一页：无皮肤时独占展示，有皮肤时翻页可见
+  function render() {
+    const s = current();
+    const onAddPage = state.idx >= state.skins.length; // 超出最后一页即导入页
+    $('viewer').classList.toggle('hidden', onAddPage);
+    $('addTile').classList.toggle('hidden', !onAddPage);
+    if (s) {
+      ensureViewer();
+      skinViewer.loadSkin(s.url, { model: s.slim ? 'slim' : 'default' })
+        .catch(() => mdui.snackbar({ message: '皮肤纹理加载失败' }));
+    }
+    const pageCount = state.skins.length + 1; // 皮肤页 + 导入页
+    $('counter').textContent = `${state.idx + 1} / ${pageCount}`;
+    // 只有一页（仅导入磁贴）时无需翻页按钮
+    const single = pageCount <= 1;
+    $('prev').style.visibility = $('next').style.visibility = single ? 'hidden' : 'visible';
+    $('prev').disabled = $('next').disabled = single;
+    $('delBtn').disabled = !s;
+    $('skinName').value = s ? s.name : '';
+    $('slim').checked = s ? s.slim : false;
+  }
+
+  function select(i) { state.idx = Math.max(0, Math.min(i, state.skins.length)); render(); }
+
+  $('prev').onclick = () => select(state.idx - 1);
+  $('next').onclick = () => select(state.idx + 1);
+
+  $('skinName').addEventListener('input', () => { const s = current(); if (s) s.name = $('skinName').value; });
+  $('slim').addEventListener('change', () => { const s = current(); if (s) { s.slim = $('slim').checked; render(); } });
+
+  // 添加皮肤：校验、识别、入列、渲染（本地文件与网络下载共用）
+  async function addSkinData(data, baseName) {
+    const dim = imageSize(data);
+    if (![64, 128].includes(dim.w) || ![64, 128].includes(dim.h) || dim.h < dim.w) {
+      mdui.snackbar({ message: `${baseName} 尺寸 ${dim.w}x${dim.h} 非标准（64x64 / 128x128），可能导致游戏内显示异常` });
+    }
+    const slim = await detectSlim(data);
+    if (slim) mdui.snackbar({ message: `${baseName}：已自动识别为纤细皮肤` });
+    state.skins.push({ name: baseName || `皮肤${state.skins.length + 1}`, slim, data, url: URL.createObjectURL(new Blob([data], { type: 'image/png' })) });
+    state.idx = state.skins.length - 1;
+    render();
+  }
+
+  // addTile 点击：合并打开皮肤/皮肤包选择器，按文件内容分发
+  $('addTile').onclick = () => $('fileInput').click();
+  $('importBtn').onclick = () => $('fileInput').click();
+  $('fileInput').onchange = async (e) => {
+    for (const file of e.target.files) {
+      const data = new Uint8Array(await file.arrayBuffer());
+      if (data[0] === 0x50 && data[1] === 0x4b) { await importPackBytes(data, file.name); continue; } // zip 魔数 PK
+      let png = data;
+      const base = file.name.replace(/\.(png|jpe?g|webp|gif|bmp)$/i, '');
+      // 按内容而非文件名判断格式：PNG 魔数 89 50 4E 47
+      if (!(data[0] === 0x89 && data[1] === 0x50 && data[2] === 0x4e && data[3] === 0x47)) {
+        if (!file.type.startsWith('image/')) { mdui.snackbar({ message: `${file.name} 不是图片，已跳过` }); continue; }
+        mdui.snackbar({ message: `${file.name} 是 ${file.type || '其他格式'}，已自动转换为 PNG` });
+        png = await toPngBytes(file);
+      }
+      await addSkinData(png, base);
+    }
+    e.target.value = '';
+  };
+
+  // 其他图片格式 → PNG（经 canvas 重编码，透明通道保留）
+  async function toPngBytes(file) {
+    const bmp = await createImageBitmap(file);
+    const c = document.createElement('canvas');
+    c.width = bmp.width; c.height = bmp.height;
+    c.getContext('2d').drawImage(bmp, 0, 0);
+    bmp.close();
+    const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+    return new Uint8Array(await blob.arrayBuffer());
+  }
+
+  function imageSize(data) {
+    // PNG 宽高固定在 IHDR：偏移 16~24
+    const view = new DataView(data.buffer, data.byteOffset, 24);
+    return { w: view.getUint32(16), h: view.getUint32(20) };
+  }
+
+  // 从 Java 版用户名导入皮肤：MineTools 查 UUID（Mojang 官方 API 无 CORS）→ Crafatar 下载皮肤
+  async function fetchSkin() {
+    // NFKC 规范化：全角字母/数字（如 Ｎｏｔｃｈ）自动转半角
+    const name = $('mcUser').value.trim().normalize('NFKC');
+    if (!name) { mdui.snackbar({ message: '请输入 Java 版用户名' }); return; }
+    $('fetchBtn').loading = true;
+    try {
+      const res = await fetch(`https://api.minetools.eu/uuid/${encodeURIComponent(name)}`);
+      const info = await res.json();
+      if (!info.id || info.status === 'ERR') throw new Error(`找不到用户 ${name}`);
+      const imgRes = await fetch(`https://crafatar.com/skins/${info.id}`);
+      if (!imgRes.ok) throw new Error('皮肤下载失败');
+      await addSkinData(new Uint8Array(await imgRes.arrayBuffer()), name);
+      mdui.snackbar({ message: `已导入 ${name} 的皮肤` });
+    } catch (err) {
+      mdui.snackbar({ message: err.message || '导入失败，请检查网络' });
+    } finally {
+      $('fetchBtn').loading = false;
+    }
+  }
+  $('fetchBtn').onclick = fetchSkin;
+  $('mcUser').addEventListener('keydown', (e) => { if (e.key === 'Enter') fetchSkin(); });
+
+  // 纤细模型启发式识别：纤细手臂宽 3px（经典为 4px），
+  // 其右臂顶/底面纹理在 (50,16)-(52,20) 区域留空 → 全透明即判定纤细。
+  // ponytail: 仅检测这一个矩形，极端手绘皮肤可能误判，用户可用开关手动纠正。
+  const detectCanvas = document.createElement('canvas');
+  async function detectSlim(data) {
+    const bmp = await createImageBitmap(new Blob([data], { type: 'image/png' }));
+    detectCanvas.width = bmp.width; detectCanvas.height = bmp.height;
+    const ctx = detectCanvas.getContext('2d', { willReadFrequently: true });
+    ctx.clearRect(0, 0, detectCanvas.width, detectCanvas.height);
+    ctx.drawImage(bmp, 0, 0);
+    bmp.close();
+    const s = detectCanvas.width / 64;
+    const px = ctx.getImageData(50 * s, 16 * s, 2 * s, 4 * s).data;
+    for (let i = 3; i < px.length; i += 4) if (px[i] !== 0) return false; // 有不透明像素 → 经典
+    return true;
+  }
+
+  // 删除当前（二次确认）
+  $('delBtn').onclick = () => { $('delDialog').open = true; };
+  $('delCancel').onclick = () => { $('delDialog').open = false; };
+  $('delConfirm').onclick = () => {
+    $('delDialog').open = false;
+    const s = current();
+    if (!s) return;
+    URL.revokeObjectURL(s.url);
+    state.skins.splice(state.idx, 1);
+    state.idx = Math.min(state.idx, state.skins.length - 1);
+    if (state.idx < 0) state.idx = 0;
+    render();
+  };
+
+  // 导出 .mcpack
+  $('exportBtn').onclick = async () => {
+    if (!state.skins.length) { mdui.snackbar({ message: '请先添加至少一张皮肤' }); return; }
+    const packName = $('packName').value.trim() || 'skin_pack';
+    const loc = packName.replace(/[^A-Za-z0-9_]/g, '_') || 'skin_pack';
+
+    const desc = [$('packDesc').value.trim(), '皮肤由 www.mcneko.com/tools/skinpack 生成'].filter(Boolean).join('\n');
+    const manifest = {
+      format_version: 2,
+      header: { name: packName, description: desc, uuid: crypto.randomUUID(), version: [1, 0, 0], min_engine_version: [1, 16, 0] },
+      modules: [{ type: 'skin_pack', uuid: crypto.randomUUID(), version: [1, 0, 0] }],
+    };
+    const skins = {
+      skins: state.skins.map((s, i) => ({
+        localization_name: `skin_${i + 1}`,
+        geometry: s.slim ? 'geometry.humanoid.customSlim' : 'geometry.humanoid.custom',
+        texture: `skin_${i + 1}.png`,
+        type: 'free',
+      })),
+      serialize_name: loc,
+      localization_name: loc,
+    };
+    const langLine = (lang) =>
+      `skinpack.${loc}=${packName}\n` + state.skins.map((s, i) => `skinpack.${loc}.skin_${i + 1}=${s.name || `Skin ${i + 1}`}`).join('\n') + '\n';
+
+    const enc = new TextEncoder();
+    const files = [
+      { name: 'manifest.json', data: enc.encode(JSON.stringify(manifest, null, 2)) },
+      { name: 'skins.json', data: enc.encode(JSON.stringify(skins, null, 2)) },
+      ...state.skins.map((s, i) => ({ name: `skin_${i + 1}.png`, data: s.data })),
+      { name: 'texts/en_US.lang', data: enc.encode(langLine()) },
+      { name: 'texts/zh_CN.lang', data: enc.encode(langLine()) },
+    ];
+    if (state.skins[0]) files.push({ name: 'pack_icon.png', data: state.skins[0].data });
+
+    const mcpack = new File([createZip(files)], `${packName}.mcpack`, { type: 'application/octet-stream' });
+    // 移动端优先系统分享（保留 .mcpack 文件名不被改成 .zip）；失败则回退下载
+    if ('ontouchstart' in window && navigator.canShare && navigator.canShare({ files: [mcpack] })) {
+      try {
+        await navigator.share({ files: [mcpack], title: packName });
+        mdui.snackbar({ message: '已通过系统分享导出，可选择"存储到文件"或直接发给 Minecraft' });
+        return;
+      } catch (err) {
+        if (err.name === 'AbortError') return; // 用户取消
+        // 分享不可用（如微信内置浏览器），继续走下载
+      }
+    }
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(mcpack), download: `${packName}.mcpack` });
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    mdui.snackbar({ message: `已导出 ${packName}.mcpack，若文件名变成 .zip 请手动改回` });
+  };
+
+  // 导入皮肤包：解析 zip → manifest / skins.json / 语言文件 / PNG 重建列表
+  async function importPackBytes(bytes, filename) {
+    try {
+      const entries = await parseZip(bytes);
+      const map = Object.fromEntries(entries.map(en => [en.name, en.data]));
+      const dec = new TextDecoder();
+      const manifest = JSON.parse(dec.decode(map['manifest.json']));
+      const skins = JSON.parse(dec.decode(map['skins.json']));
+      // 皮肤名优先取中文语言文件
+      const names = {};
+      if (map['texts/zh_CN.lang']) dec.decode(map['texts/zh_CN.lang']).split('\n').forEach(l => {
+        const m = l.match(/^skinpack\.[^=]*?\.([^=]+)=(.+)$/); if (m) names[m[1].trim()] = m[2].trim();
+      });
+      // 追加到现有列表，不覆盖已有皮肤
+      const offset = state.skins.length;
+      const added = skins.skins.flatMap((sk, i) => {
+        const data = map[sk.texture];
+        if (!data) return [];
+        const blob = new Blob([data], { type: 'image/png' });
+        return [{ name: names[sk.localization_name] || `皮肤${offset + i + 1}`, slim: sk.geometry === 'geometry.humanoid.customSlim', data: new Uint8Array(data), url: URL.createObjectURL(blob) }];
+      });
+      state.skins.push(...added);
+      if (!$('packName').value.trim()) $('packName').value = manifest.header?.name || '';
+      if (!$('packDesc').value.trim()) $('packDesc').value = (manifest.header?.description || '').replace(/\n?皮肤由 www\.mcneko\.com\/tools\/skinpack 生成\s*/, '').trim();
+      state.idx = state.skins.length - added.length; // 定位到新导入的第一张
+      render();
+      mdui.snackbar({ message: `已导入 ${added.length} 张皮肤（共 ${state.skins.length} 张）` });
+    } catch (err) {
+      mdui.snackbar({ message: `导入失败：${filename} ` + (err.message || '无法解析该文件') });
+    }
+  }
+
+  render();
+</script>
+</body>
+</html>
