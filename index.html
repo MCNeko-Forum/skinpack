@@ -3,10 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>我的世界基岩版皮肤包创建器</title>
+  <title>我的世界基岩版皮肤包创建器 - 在线制作 .mcpack 皮肤包 | MCNeko</title>
+  <meta name="description" content="免费在线制作我的世界基岩版皮肤包：3D 皮肤预览、纤细/经典模型自动识别、输入 Java 版用户名一键导入皮肤、导出 .mcpack 直接导入游戏。支持手机和电脑，纯浏览器本地处理，不上传任何文件，还能导入别人的皮肤包进行编辑。">
+  <meta name="keywords" content="我的世界,皮肤包,基岩版,mcpack,皮肤编辑器,在线皮肤包制作,minecraft skin pack,皮肤包生成器,基岩版皮肤,MC皮肤,3D皮肤预览,导入皮肤包">
+  <meta name="robots" content="index,follow">
+  <meta property="og:title" content="我的世界基岩版皮肤包创建器 - 免费在线制作 .mcpack">
+  <meta property="og:description" content="浏览器里 3D 预览皮肤、自动识别纤细模型、按用户名导入正版皮肤，一键导出 .mcpack 皮肤包。手机电脑都能用，无需安装任何软件。">
+  <meta property="og:type" content="website">
+  <link rel="canonical" href="https://www.mcneko.com/tools/skinpack">
   <link rel="stylesheet" href="https://cdn.jsdmirror.com/npm/mdui@2/mdui.css">
   <script src="https://cdn.jsdmirror.com/npm/mdui@2/mdui.global.js"></script>
-  <script src="/static/js/zip.js"></script>
+  <script src="./static/js/zip.js"></script>
   <script src="https://cdn.jsdmirror.com/npm/skinview3d@3/bundles/skinview3d.bundle.js"></script>
   <style>
     body { display: flex; flex-direction: column; align-items: center; padding: 24px 16px 48px; }
@@ -15,6 +22,7 @@
     .stage > * { flex-shrink: 0; }
     .stage canvas { flex-shrink: 1; min-width: 0; max-width: 256px; height: auto; aspect-ratio: 4 / 5; }
     .counter { text-align: center; color: var(--mdui-color-on-surface-variant); margin-top: 4px; }
+    .skin-warning { margin-bottom: 8px; text-align: center; color: var(--mdui-color-error); }
     .add-tile { flex-shrink: 1; min-width: 0; width: 256px; max-width: 100%; aspect-ratio: 4 / 5; border: 2px dashed var(--mdui-color-outline); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--mdui-color-on-surface-variant); text-align: center; cursor: pointer; user-select: none; }
     .add-tile:active { background: var(--mdui-color-surface-container-highest); }
     .hidden { display: none; }
@@ -27,6 +35,7 @@
 
   <mdui-card variant="outlined" class="card" style="padding:24px">
     <!-- 上方：皮肤展示区 -->
+    <div id="skinWarning" class="skin-warning hidden">该皮肤可能无法正常显示</div>
     <div class="stage">
       <mdui-button-icon id="prev" disabled>
         <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
@@ -114,6 +123,7 @@
     const onAddPage = state.idx >= state.skins.length; // 超出最后一页即导入页
     $('viewer').classList.toggle('hidden', onAddPage);
     $('addTile').classList.toggle('hidden', !onAddPage);
+    $('skinWarning').classList.toggle('hidden', !s || !s.warning);
     if (s) {
       ensureViewer();
       skinViewer.loadSkin(s.url, { model: s.slim ? 'slim' : 'default' })
@@ -141,21 +151,28 @@
   // 添加皮肤：校验、识别、入列、渲染（本地文件与网络下载共用）
   async function addSkinData(data, baseName) {
     const dim = imageSize(data);
-    if (![64, 128].includes(dim.w) || ![64, 128].includes(dim.h) || dim.h < dim.w) {
-      mdui.snackbar({ message: `${baseName} 尺寸 ${dim.w}x${dim.h} 非标准（64x64 / 128x128），可能导致游戏内显示异常` });
+    const square = dim.w === dim.h;
+    const twoToOne = dim.w === dim.h * 2 && !(dim.w === 128 && dim.h === 64);
+    if (!square && !twoToOne) {
+      mdui.snackbar({ message: `${baseName} 尺寸 ${dim.w}x${dim.h} 不受支持，已跳过；仅支持正方形或 2:1 展开图（不支持 128x64）` });
+      return false;
     }
+    const warning = !((dim.w === 64 && [32, 64].includes(dim.h)) || (dim.w === 128 && dim.h === 128));
     const slim = await detectSlim(data);
     if (slim) mdui.snackbar({ message: `${baseName}：已自动识别为纤细皮肤` });
-    state.skins.push({ name: baseName || `皮肤${state.skins.length + 1}`, slim, data, url: URL.createObjectURL(new Blob([data], { type: 'image/png' })) });
+    state.skins.push({ name: baseName || `皮肤${state.skins.length + 1}`, slim, warning, data, url: URL.createObjectURL(new Blob([data], { type: 'image/png' })) });
     state.idx = state.skins.length - 1;
     render();
+    return true;
   }
 
   // addTile 点击：合并打开皮肤/皮肤包选择器，按文件内容分发
   $('addTile').onclick = () => $('fileInput').click();
   $('importBtn').onclick = () => $('fileInput').click();
-  $('fileInput').onchange = async (e) => {
-    for (const file of e.target.files) {
+
+  // 文件分发：zip→皮肤包，PNG→皮肤，其他图片→转 PNG
+  async function handleFiles(files) {
+    for (const file of files) {
       const data = new Uint8Array(await file.arrayBuffer());
       if (data[0] === 0x50 && data[1] === 0x4b) { await importPackBytes(data, file.name); continue; } // zip 魔数 PK
       let png = data;
@@ -168,8 +185,19 @@
       }
       await addSkinData(png, base);
     }
+  }
+
+  $('fileInput').onchange = async (e) => {
+    await handleFiles(e.target.files);
     e.target.value = '';
   };
+
+  // 拖放导入：整页可拖，松手即加入
+  document.body.addEventListener('dragover', (e) => { e.preventDefault(); });
+  document.body.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    if (e.dataTransfer.files.length) await handleFiles(e.dataTransfer.files);
+  });
 
   // 其他图片格式 → PNG（经 canvas 重编码，透明通道保留）
   async function toPngBytes(file) {
@@ -196,12 +224,24 @@
     $('fetchBtn').loading = true;
     try {
       const res = await fetch(`https://api.minetools.eu/uuid/${encodeURIComponent(name)}`);
+      if (!res.ok) throw new Error('用户名查询服务暂时不可用');
       const info = await res.json();
       if (!info.id || info.status === 'ERR') throw new Error(`找不到用户 ${name}`);
-      const imgRes = await fetch(`https://crafatar.com/skins/${info.id}`);
-      if (!imgRes.ok) throw new Error('皮肤下载失败');
-      await addSkinData(new Uint8Array(await imgRes.arrayBuffer()), name);
-      mdui.snackbar({ message: `已导入 ${name} 的皮肤` });
+
+      const profileRes = await fetch(`https://api.minetools.eu/profile/${info.id}`);
+      if (!profileRes.ok) throw new Error('无法获取该用户的皮肤资料');
+      const profile = await profileRes.json();
+      const textureUrl = profile.decoded?.textures?.SKIN?.url;
+      if (!textureUrl) throw new Error(`${name} 尚未设置 Java 版皮肤`);
+      const secureTextureUrl = textureUrl.replace(/^http:\/\//, 'https://');
+      const imgRes = await fetch(secureTextureUrl);
+      if (!imgRes.ok) throw new Error(`皮肤图片下载失败（HTTP ${imgRes.status}）`);
+      const imageData = new Uint8Array(await imgRes.arrayBuffer());
+      if (!(imageData[0] === 0x89 && imageData[1] === 0x50 && imageData[2] === 0x4e && imageData[3] === 0x47)) {
+        throw new Error('皮肤服务器返回的内容不是有效 PNG');
+      }
+      const added = await addSkinData(imageData, name);
+      if (added) mdui.snackbar({ message: `已导入 ${name} 的皮肤` });
     } catch (err) {
       mdui.snackbar({ message: err.message || '导入失败，请检查网络' });
     } finally {
@@ -314,7 +354,9 @@
         const data = map[sk.texture];
         if (!data) return [];
         const blob = new Blob([data], { type: 'image/png' });
-        return [{ name: names[sk.localization_name] || `皮肤${offset + i + 1}`, slim: sk.geometry === 'geometry.humanoid.customSlim', data: new Uint8Array(data), url: URL.createObjectURL(blob) }];
+        const dim = imageSize(data);
+        const warning = !((dim.w === 64 && [32, 64].includes(dim.h)) || (dim.w === 128 && dim.h === 128));
+        return [{ name: names[sk.localization_name] || `皮肤${offset + i + 1}`, slim: sk.geometry === 'geometry.humanoid.customSlim', warning, data: new Uint8Array(data), url: URL.createObjectURL(blob) }];
       });
       state.skins.push(...added);
       if (!$('packName').value.trim()) $('packName').value = manifest.header?.name || '';

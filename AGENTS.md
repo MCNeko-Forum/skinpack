@@ -9,8 +9,9 @@
 - **上方：皮肤展示区** — 一次只展示一张皮肤的 3D 预览（支持内外双层皮肤），通过左右箭头按钮切换上一张/下一张，并显示"当前 / 总数"，可拖拽旋转、滚轮缩放。
 - 每张皮肤可设置：皮肤显示名（写入语言文件）、模型类型（经典 / 纤细）。
 - 纤细模型自动识别：检查右臂顶面区域 (50,16)-(52,20) 透明度（纤细手臂宽 3px 此处留空），识别结果写入开关，用户可手动纠正。
+- 图片尺寸校验：接受正方形或 2:1 图片，明确拒绝 128x64；非 64x64 / 128x128 的已接受图片只在选中该皮肤时显示“该皮肤可能无法正常显示”。
 - 添加（支持一次多选 PNG）、删除皮肤（删除需经对话框二次确认）。
-- **Java 版用户名导入** — 输入用户名下载皮肤并加入包（皮肤名自动填用户名）。Mojang 官方 API 无 CORS，故走 MineTools（`api.minetools.eu/uuid/{name}` 查 UUID）+ Crafatar（`crafatar.com/skins/{uuid}` 下载 PNG），两者均允许跨域。用户名查询前做 NFKC 规范化（全角→半角）。
+- **Java 版用户名导入** — 输入用户名下载皮肤并加入包（皮肤名自动填用户名）。MineTools（`api.minetools.eu/uuid/{name}` 查 UUID，再用 `/profile/{uuid}` 获取纹理地址）+ Mojang textures CDN（HTTPS）下载 PNG，均允许跨域。用户名查询前做 NFKC 规范化（全角→半角）。
 - **导入皮肤包** — 解析已有 `.mcpack`/`.zip` 重建编辑状态（`static/js/zip.js` 的 `parseZip`，支持 STORE/DEFLATE），包名、描述（去除署名行）、皮肤名（取自 zh_CN.lang）、纤细标记（取自 skins.json geometry）均自动回填。
 - **下方：皮肤包名称区** — 输入皮肤包名称与包描述（可选），导出时的 `.mcpack` 文件名与包内显示名称均使用名称；manifest 简介为"用户描述 \n 皮肤由 www.mcneko.com/tools/skinpack 生成"（无描述时只有署名行）。
 - 一键导出 `.mcpack`（本质为 zip），包含：
