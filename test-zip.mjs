@@ -46,3 +46,11 @@ assert.deepStrictEqual([...parsed[1].data], [...files[1].data]);
 assert.strictEqual(parsed[1].name, files[1].name);
 
 console.log('test-zip: 全部通过 ✓');
+
+// 5) Verify Skin Pack localization keys use the Bedrock skin.<pack>.<skin> convention.
+const indexHtml = require('fs').readFileSync(new URL('./index.html', import.meta.url), 'utf8');
+assert.match(indexHtml, /`skin\.\$\{loc\}\.skin_\$\{i \+ 1\}=/, '皮肤名称语言键必须使用 skin. 前缀');
+assert.doesNotMatch(indexHtml, /skinpack\.\$\{loc\}\.skin_/, '皮肤名称语言键不应使用 skinpack. 前缀');
+assert.match(indexHtml, /name: 'pack_icon\.png'/, '导出应包含固定封面图');
+assert.ok(require('fs').existsSync(new URL('./static/pack_icon.png', import.meta.url)), '固定封面图应存在');
+console.log('test-zip: 皮肤包语言键与固定封面图约定通过 ✓');

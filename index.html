@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="./static/nekoskin.png">
   <title>我的世界基岩版皮肤包创建器 - 在线制作 .mcpack 皮肤包 | MCNeko</title>
   <meta name="description" content="免费在线制作我的世界基岩版皮肤包：3D 皮肤预览、纤细/经典模型自动识别、输入 Java 版用户名一键导入皮肤、导出 .mcpack 直接导入游戏。支持手机和电脑，纯浏览器本地处理，不上传任何文件，还能导入别人的皮肤包进行编辑。">
   <meta name="keywords" content="我的世界,皮肤包,基岩版,mcpack,皮肤编辑器,在线皮肤包制作,minecraft skin pack,皮肤包生成器,基岩版皮肤,MC皮肤,3D皮肤预览,导入皮肤包">
@@ -285,13 +286,14 @@
   // 导出 .mcpack
   $('exportBtn').onclick = async () => {
     if (!state.skins.length) { mdui.snackbar({ message: '请先添加至少一张皮肤' }); return; }
-    const packName = $('packName').value.trim() || 'skin_pack';
-    const loc = packName.replace(/[^A-Za-z0-9_]/g, '_') || 'skin_pack';
+    const packName = $('packName').value.trim() || 'Neko皮肤包';
+    $('packName').value = packName;
+    const loc = packName.replace(/[^A-Za-z0-9_]/g, '_') || 'Neko_skin_pack';
 
     const desc = [$('packDesc').value.trim(), '皮肤由 www.mcneko.com/tools/skinpack 生成'].filter(Boolean).join('\n');
     const manifest = {
       format_version: 2,
-      header: { name: packName, description: desc, uuid: crypto.randomUUID(), version: [1, 0, 0], min_engine_version: [1, 16, 0] },
+      header: { name: packName, description: desc, uuid: crypto.randomUUID(), version: [1, 0, 0] },
       modules: [{ type: 'skin_pack', uuid: crypto.randomUUID(), version: [1, 0, 0] }],
     };
     const skins = {
@@ -305,7 +307,7 @@
       localization_name: loc,
     };
     const langLine = (lang) =>
-      `skinpack.${loc}=${packName}\n` + state.skins.map((s, i) => `skinpack.${loc}.skin_${i + 1}=${s.name || `Skin ${i + 1}`}`).join('\n') + '\n';
+      `skinpack.${loc}=${packName}\n` + state.skins.map((s, i) => `skin.${loc}.skin_${i + 1}=${s.name || `Skin ${i + 1}`}`).join('\n') + '\n';
 
     const enc = new TextEncoder();
     const files = [
@@ -314,9 +316,8 @@
       ...state.skins.map((s, i) => ({ name: `skin_${i + 1}.png`, data: s.data })),
       { name: 'texts/en_US.lang', data: enc.encode(langLine()) },
       { name: 'texts/zh_CN.lang', data: enc.encode(langLine()) },
+      { name: 'pack_icon.png', data: new Uint8Array(await (await fetch('./static/pack_icon.png')).arrayBuffer()) },
     ];
-    if (state.skins[0]) files.push({ name: 'pack_icon.png', data: state.skins[0].data });
-
     const mcpack = new File([createZip(files)], `${packName}.mcpack`, { type: 'application/octet-stream' });
     // 移动端优先系统分享（保留 .mcpack 文件名不被改成 .zip）；失败则回退下载
     if ('ontouchstart' in window && navigator.canShare && navigator.canShare({ files: [mcpack] })) {
@@ -346,7 +347,7 @@
       // 皮肤名优先取中文语言文件
       const names = {};
       if (map['texts/zh_CN.lang']) dec.decode(map['texts/zh_CN.lang']).split('\n').forEach(l => {
-        const m = l.match(/^skinpack\.[^=]*?\.([^=]+)=(.+)$/); if (m) names[m[1].trim()] = m[2].trim();
+        const m = l.match(/^skin\.[^.]+\.([^=]+)=(.+)$/); if (m) names[m[1].trim()] = m[2].trim();
       });
       // 追加到现有列表，不覆盖已有皮肤
       const offset = state.skins.length;

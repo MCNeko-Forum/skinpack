@@ -19,7 +19,7 @@
   - `skins.json`（skins 数组、serialize_name、localization_name）
   - 各皮肤 PNG（`skin_N.png`）
   - `texts/en_US.lang`、`texts/zh_CN.lang`
-  - `pack_icon.png`（复用第一张皮肤，没有则省略）
+  - `pack_icon.png`（使用 `static/pack_icon.png` 作为固定封面图）
 
 ## 技术约定
 
